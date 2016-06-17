@@ -1,159 +1,65 @@
 ﻿clear
 <#Todo
- UserPicture (Current and Default user)
- LockScreen (get win version and adjust accordingly)
- Change startbar/quicklaunch shortcut icons (
- Change system fonts?
- Change web browser settings (include pony theme?)
-
- Need Custom DLL for icons
- Need Custom Sounds set
- Need Custom Mouse Cursors
- Need startup WAV file
+ MousePack Change (reg key mods)
+ System Sounds    (reg key mods) - Need WAV files
+ Fonts
+ Web browser settings
 #>
 
 #Ƹ̵̡Ӝ̵̨̄Ʒ 
-
 <#Done
-UserPicture      (
+Change startbar/quicklaunch shortcut icons (
+UserPicture      (Current and Default user)
+LockScreen       (folder and reg key)
 Wallpaper        (reg key mod)
 Startup Sound    (dll inject)
-MousePack Change (reg key mods)
-System Sounds    (reg key mods)
-Shortcut Change  (editing the .lnk properties)
+Shortcuts Change  (editing the .lnk properties)
+
 #>
 
+$backuploc = "C:\Temp"
+$wallpapers = "C:\Temp"
+<# Necessary Files:
+wallpaper.jpg
+lockscreen.jpg (1440x900)
+PwnyStartSound("path\to\soundfile.wav")
+$env:SystemRoot\cursors\*.ani
+$env:SystemRoot\media\*.wav
+$env:WINDIR\pnyres.dll
+
+#>
 function PwnBrowser{
     #change homepages
-    #find chrome, firefox, and ie, maybe edge
-}
+    #IE homepage is easy, registry key
+    #Firefox homepage is a javascript @ C:\Users\ [USERNAME]\AppData\Roaming\Mozilla\Firefox\Profiles\ [Subfolder]
+    #add or edit the line that looks like: user_pref("browser.startup.homepage", "www.google.com");
+    #taskkill /im firefox.exe* /f
+    #cd /D "%APPDATA%\Mozilla\Firefox\Profiles"
+    #cd *.default
+    #set ffile=%cd%
+    #echo user_pref("browser.startup.homepage", "https://www.brony.com");>>"%ffile%\prefs.js"
 
-function PwnFonts{
-    #figure out this one
-}
-
-function PwnQuickLaunch{
-    PwnyShortcuts("%APPDATA%\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar")
-}
-
-function PwnyUserIcon{
-<#
-C:\ProgramData\Microsoft\Default Account Pictures\user.bmp
-C:\ProgramData\Microsoft\User Account Pictures\user.bmp
-
-HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer
-UseDefaultTile
-1
-
-#>
-
-}
-
-function PwnyLockScreen{
-<#
-"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI\Background" 
-"OEMBackground"
-1
-
-Mkdir C:\Windows\System32\oobe\Info\backgrounds
-insert
-"backgroundDefault.jpg"
-#>
-}
-
-function PwnyPaper([string]$pnyPaper){
-    GP -Path "HKCU:\Control Panel\Desktop\" -Name "wallpaper"
-    Reg export "HKEY_CURRENT_USER\Control Panel\Desktop" "C:\Temp\desktopProps.reg"
-    Set-ItemProperty -path "HKCU:\Control Panel\Desktop\" -name wallpaper -value $pnyPaper
-    rundll32.exe user32.dll, UpdatePerUserSystemParameters
-}
-
-function PwnyStartSound([string]$pfile){
-#usage PwnyStartSound "C:\temp\r2d2.wav"
-    $imageresFile = "$($Env:SYSTEMROOT)\System32\imageres.dll"
-    
-    $check=Test-Path -Path $imageresFile
-    if(!$check){Write-Host -ForegroundColor Yellow -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Awww...cant find the imageres.dll at: $imageresFile";return}
-    $check=Test-Path -Path $pfile
-    if(!$check){Write-Host -ForegroundColor Yellow -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Awww...cant find the startup sound at: $pfile";return}
-
-# kernel32.dll
-    $MethodDefinition = @'
-[DllImport("kernel32.dll", EntryPoint="BeginUpdateResourceW", CallingConvention=CallingConvention.StdCall, CharSet=CharSet.Unicode, SetLastError=true, ExactSpelling=true)]
-public static extern IntPtr BeginUpdateResource(string pFileName, bool bDeleteExistingResources);
-
-[DllImport("kernel32.dll", EntryPoint="UpdateResourceW", CallingConvention=CallingConvention.StdCall, CharSet=CharSet.Unicode, SetLastError=true, ExactSpelling=true)]
-public static extern bool UpdateResource(IntPtr hUpdate, string lpType, int iResID, ushort wLanguage, byte[] pData, uint cbData);
-
-[DllImport("kernel32.dll", EntryPoint="EndUpdateResourceW", CallingConvention=CallingConvention.StdCall, CharSet=CharSet.Unicode, SetLastError=true, ExactSpelling=true)]
-public static extern bool EndUpdateResource(IntPtr hUpdate, bool bDiscard);
-
-[DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-public static extern IntPtr LoadLibraryEx(String lpFileName, IntPtr hFile, UInt32 dwFlags);
-
-[DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)] 
-public static extern bool FreeLibrary (IntPtr hModule); 
-
-[DllImport ("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)] 
-public static extern IntPtr FindResource(IntPtr hModule, int lpID, string lpType); 
-'@
-    $Kernel32 = Add-Type -MemberDefinition $MethodDefinition -Name 'Kernel32' -Namespace 'Win32' -PassThru
-
-    $reader = New-Object System.IO.BinaryReader([System.IO.File]::OpenRead($pFile))
-    $length = $reader.BaseStream.Length
-    $pData = $reader.ReadBytes($length)
-    $reader.Close()
-
-    #PwrUpPwny SeBackupPrivilege | Out-Null
-    #PwrUpPwny SeDebugPrivilege | Out-Null
-    $accessControl = Get-ACL $imageresFile
-    
-    Copy-Item $imageresFile "$imageresFile.orig" -Force
-    $accessControl.SetOwner([System.Security.Principal.NTAccount]"$env:userdomain\$env:username")
-    Set-Acl -Path $imageresFile -AclObject $accessControl
-
-    #check the DLL
-    $hModule = $Kernel32::LoadLibraryEx($imageresFile,[IntPtr]::Zero,0x2)
-    $soundCheck = $Kernel32::FindResource($hModule, 5080, "WAVE")
-        if ($soundCheck -eq $null){return}
-    $Kernel32::FreeLibrary($hModule) | Out-Null
-
-    #mod the DLL
-    $hUpdate = $Kernel32::BeginUpdateResource($imageresFile,$false)
-        if ($hUpdate -eq $null){return}
-    <#
-    IntPtr hUpdate    // update resource handle (result of BeginUpdateResource)
-    string lpType     // change resource (name of resource)
-    int iResID        // resource id (resource id)
-    ushort wLanguage  // neutral language
-    byte[] pData      // ptr to resource info
-    uint cbData       // size of resource info
-    #>
-    $tUpdate=$Kernel32::UpdateResource($hUpdate, "WAVE", 5080, 0x409, $pData, $length)
-        if (!$tUpdate){return}
-    $success=$Kernel32::EndUpdateResource($hUpdate,$false)
-    if($success){Write-Host -ForegroundColor Magenta -BackgroundColor White "Yay Pony Startup!"}
-
+    #chrome is a pain, edge is stupid
 }
 
 function PwnyMouse{
     $mouseReg = ("HKCU:\Control Panel\Cursors")
     SP -WhatIf -Path $mouseReg -Name "(Default)" -Value "Pony"
-    SP -WhatIf -Path $mouseReg -Name "AppStarting" -Value "%SystemRoot%\cursors\aero_working.ani"
-    SP -WhatIf -Path $mouseReg -Name "Arrow" -Value "%SystemRoot%\cursors\aero_arrow.cur"
-    SP -WhatIf -Path $mouseReg -Name "Crosshair" -Value "%SystemRoot%\cursors\cross_r.cur"
-    SP -WhatIf -Path $mouseReg -Name "Hand" -Value "%SystemRoot%\cursors\aero_link.cur"
-    SP -WhatIf -Path $mouseReg -Name "Help" -Value "%SystemRoot%\cursors\aero_helpsel.cur"
+    SP -WhatIf -Path $mouseReg -Name "AppStarting" -Value "$env:SystemRoot\cursors\aero_working.ani"
+    SP -WhatIf -Path $mouseReg -Name "Arrow" -Value "$env:SystemRoot\cursors\aero_arrow.cur"
+    SP -WhatIf -Path $mouseReg -Name "Crosshair" -Value "$env:SystemRoot\cursors\cross_r.cur"
+    SP -WhatIf -Path $mouseReg -Name "Hand" -Value "$env:SystemRoot\cursors\aero_link.cur"
+    SP -WhatIf -Path $mouseReg -Name "Help" -Value "$env:SystemRoot\cursors\aero_helpsel.cur"
     SP -WhatIf -Path $mouseReg -Name "IBeam" -Value ""
-    SP -WhatIf -Path $mouseReg -Name "No" -Value "%SystemRoot%\cursors\aero_unavail.cur"
-    SP -WhatIf -Path $mouseReg -Name "NWPen" -Value "%SystemRoot%\cursors\aero_pen.cur"
-    SP -WhatIf -Path $mouseReg -Name "SizeAll" -Value "%SystemRoot%\cursors\aero_move.cur"
-    SP -WhatIf -Path $mouseReg -Name "SizeNESW" -Value "%SystemRoot%\cursors\aero_nesw.cur"
-    SP -WhatIf -Path $mouseReg -Name "SizeNS" -Value "%SystemRoot%\cursors\aero_ns.cur"
-    SP -WhatIf -Path $mouseReg -Name "SizeNWSE" -Value "%SystemRoot%\cursors\aero_nwse.cur"
-    SP -WhatIf -Path $mouseReg -Name "SizeWE" -Value "%SystemRoot%\cursors\aero_ew.cur"
-    SP -WhatIf -Path $mouseReg -Name "UpArrow" -Value "%SystemRoot%\cursors\aero_up.cur"
-    SP -WhatIf -Path $mouseReg -Name "Wait" -Value "%SystemRoot%\cursors\aero_busy.cur"
+    SP -WhatIf -Path $mouseReg -Name "No" -Value "$env:SystemRoot\cursors\aero_unavail.cur"
+    SP -WhatIf -Path $mouseReg -Name "NWPen" -Value "$env:SystemRoot\cursors\aero_pen.cur"
+    SP -WhatIf -Path $mouseReg -Name "SizeAll" -Value "$env:SystemRoot\cursors\aero_move.cur"
+    SP -WhatIf -Path $mouseReg -Name "SizeNESW" -Value "$env:SystemRoot\cursors\aero_nesw.cur"
+    SP -WhatIf -Path $mouseReg -Name "SizeNS" -Value "$env:SystemRoot\cursors\aero_ns.cur"
+    SP -WhatIf -Path $mouseReg -Name "SizeNWSE" -Value "$env:SystemRoot\cursors\aero_nwse.cur"
+    SP -WhatIf -Path $mouseReg -Name "SizeWE" -Value "$env:SystemRoot\cursors\aero_ew.cur"
+    SP -WhatIf -Path $mouseReg -Name "UpArrow" -Value "$env:SystemRoot\cursors\aero_up.cur"
+    SP -WhatIf -Path $mouseReg -Name "Wait" -Value "$env:SystemRoot\cursors\aero_busy.cur"
 }
 
 function PwnySound{
@@ -217,7 +123,7 @@ function PwnySound{
             "SystemNotification"{}
             "SystemQuestion"{}
             "WindowsLogoff"{}
-            "WindowsLogon"{$key.SetValue("","%SystemRoot%\media\Windows Logon.wav")}
+            "WindowsLogon"{$key.SetValue("","$env:SystemRoot\media\Windows Logon.wav")}
             "WindowsUAC"{}
             "WindowsUnlock"{}
             default{Write-Host -ForegroundColor RED $soundName}
@@ -225,30 +131,262 @@ function PwnySound{
     }
 }
 
-function PwnyShortcuts([string]$sadFolder, [string]$pnyDLL="C:\Windows\System32\SHELL32.dll"){
+function PwnFonts{
+    #figure out this one
+    <#
+    ;Remove Segoe UI
+    [HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts]
+    "Segoe UI (TrueType)"=""
+    "Segoe UI Bold (TrueType)"=""
+    "Segoe UI Italic (TrueType)"=""
+    "Segoe UI Bold Italic (TrueType)"=""
+    "Segoe UI Semibold (TrueType)"=""
+    "Segoe UI Light (TrueType)"=""
+    "Segoe UI Symbol (TrueType)"=""
+
+    ;Font Substitution
+    [HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\FontSubstitutes]
+    "Segoe UI"="Equestria.ttf"
+
+    #>
+    #HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts
+}
+
+function PwnQuickLaunch{
+    PwnyShortcuts("$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar")
+}
+
+function PwnyUserIcon{
+    If  ( -Not ( Test-Path "$env:ProgramData\Microsoft\Default Account Pictures\user.bmp")){
+        Copy-Item "$wallpapers\user.bmp" "$env:ProgramData\Microsoft\User Account Pictures\user.bmp" -Force -ErrorAction SilentlyContinue
+        Copy-Item "$wallpapers\guest.bmp" "$env:ProgramData\Microsoft\User Account Pictures\guest.bmp" -Force -ErrorAction SilentlyContinue
+    }else{
+        Copy-Item "$wallpapers\user.bmp" "$env:ProgramData\Microsoft\Default Account Pictures\user.bmp" -Force -ErrorAction SilentlyContinue
+        Copy-Item "$wallpapers\guest.bmp" "$env:ProgramData\Microsoft\Default Account Pictures\guest.bmp" -Force -ErrorAction SilentlyContinue
+    }
+    $Key = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+    If  ( -Not ( Test-Path "Registry::$Key")){New-Item -Path "Registry::$Key" -ItemType RegistryKey -Force}
+    Set-ItemProperty -path "Registry::$Key" -Name "UseDefaultTile" -Type "DWORD" -Value "1" -Force
+    Write-Host -ForegroundColor Magenta -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Changed the user icons!"
+<#
+$env:ProgramData\Microsoft\Default Account Pictures\user.bmp
+$env:ProgramData\Microsoft\User Account Pictures\user.bmp
+$env:ProgramData\Microsoft\User Account Pictures\Default Pictures
+user.bmp - size 128x128 pixels
+guest.bmp - size 128x128 pixels
+HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer
+UseDefaultTile
+1
+#>
+}
+
+function PwnyLockScreen{
+    New-Item -Path "$env:windir\System32\oobe\Info\backgrounds" -ItemType directory -ErrorAction SilentlyContinue
+    Copy-Item "$wallpapers\lockscreen.jpg" "$env:windir\System32\oobe\Info\backgrounds\backgroundDefault.jpg" -Force
+    $Key = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI\Background"
+    If  ( -Not ( Test-Path "Registry::$Key")){New-Item -Path "Registry::$Key" -ItemType RegistryKey -Force}
+    Set-ItemProperty -path "Registry::$Key" -Name "OEMBackground" -Type "DWORD" -Value "1" -Force
+    Write-Host -ForegroundColor Magenta -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Lockscreen Background Changed!"
+}
+
+function PwnyPaper{
+<#
+HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System
+Wallpaper = path to location
+WallpaperStyle = 2
+#>
+    #Reg export "HKEY_CURRENT_USER\Control Panel\Desktop" "$backuploc\desktopProps.reg" 
+    Set-ItemProperty -path "HKCU:\Control Panel\Desktop\" -name "wallpaper" -value "$wallpapers\wallpaper.jpg"
+    rundll32.exe user32.dll, UpdatePerUserSystemParameters
+    Write-Host -ForegroundColor Magenta -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Pony wallpaper all set!"
+}
+
+function PwnyStartSound([string]$pfile){
+#usage PwnyStartSound "C:\temp\newsound.wav"
+    $imageresFile = "$($Env:SYSTEMROOT)\System32\imageres.dll"
+    
+    $check=Test-Path -Path $imageresFile
+    if(!$check){Write-Host -ForegroundColor Yellow -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Awww...cant find the imageres.dll at: $imageresFile";return}
+    $check=Test-Path -Path $pfile
+    if(!$check){Write-Host -ForegroundColor Yellow -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Awww...cant find the startup sound at: $pfile";return}
+
+# kernel32.dll
+    $MethodDefinition = @'
+[DllImport("kernel32.dll", EntryPoint="BeginUpdateResourceW", CallingConvention=CallingConvention.StdCall, CharSet=CharSet.Unicode, SetLastError=true, ExactSpelling=true)]
+public static extern IntPtr BeginUpdateResource(string pFileName, bool bDeleteExistingResources);
+
+[DllImport("kernel32.dll", EntryPoint="UpdateResourceW", CallingConvention=CallingConvention.StdCall, CharSet=CharSet.Unicode, SetLastError=true, ExactSpelling=true)]
+public static extern bool UpdateResource(IntPtr hUpdate, string lpType, int iResID, ushort wLanguage, byte[] pData, uint cbData);
+
+[DllImport("kernel32.dll", EntryPoint="EndUpdateResourceW", CallingConvention=CallingConvention.StdCall, CharSet=CharSet.Unicode, SetLastError=true, ExactSpelling=true)]
+public static extern bool EndUpdateResource(IntPtr hUpdate, bool bDiscard);
+
+[DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+public static extern IntPtr LoadLibraryEx(String lpFileName, IntPtr hFile, UInt32 dwFlags);
+
+[DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)] 
+public static extern bool FreeLibrary (IntPtr hModule); 
+
+[DllImport ("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)] 
+public static extern IntPtr FindResource(IntPtr hModule, int lpID, string lpType); 
+'@
+    $Kernel32 = Add-Type -MemberDefinition $MethodDefinition -Name 'Kernel32' -Namespace 'Win32' -PassThru
+
+    $reader = New-Object System.IO.BinaryReader([System.IO.File]::OpenRead($pFile))
+    $length = $reader.BaseStream.Length
+    $pData = $reader.ReadBytes($length)
+    $reader.Close()
+
+    #PwrUpPwny SeBackupPrivilege | Out-Null
+    #PwrUpPwny SeDebugPrivilege | Out-Null
+    $accessControl = Get-ACL $imageresFile
+    
+    Copy-Item $imageresFile "$imageresFile.orig" -Force
+    $accessControl.SetOwner([System.Security.Principal.NTAccount]"$env:userdomain\$env:username")
+    Set-Acl -Path $imageresFile -AclObject $accessControl
+
+    #check the DLL
+    $hModule = $Kernel32::LoadLibraryEx($imageresFile,[IntPtr]::Zero,0x2)
+    $soundCheck = $Kernel32::FindResource($hModule, 5080, "WAVE")
+    if ($soundCheck -eq $null){return}
+    $Kernel32::FreeLibrary($hModule) | Out-Null
+
+    #mod the DLL
+    $hUpdate = $Kernel32::BeginUpdateResource($imageresFile,$false)
+        if ($hUpdate -eq $null){return}
+    <#
+    IntPtr hUpdate    // update resource handle (result of BeginUpdateResource)
+    string lpType     // change resource (name of resource)
+    int iResID        // resource id (resource id)
+    ushort wLanguage  // neutral language
+    byte[] pData      // ptr to resource info
+    uint cbData       // size of resource info
+    #>
+    $tUpdate=$Kernel32::UpdateResource($hUpdate, "WAVE", 5080, 0x409, $pData, $length)
+    if (!$tUpdate){return}
+    $success=$Kernel32::EndUpdateResource($hUpdate,$false)
+    if($success){Write-Host -ForegroundColor Magenta -BackgroundColor White "Yay Pony Startup!"}
+}
+
+function PwnyShortcuts([string]$sadFolder, [string]$pnyDLL="$env:WINDIR\pnyres.dll"){
     $objShell = New-Object -ComObject WScript.Shell
+    #https://forums.adobe.com/thread/1317178
     #C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Office 2013
-    $shortcuts = Get-ChildItem sadFolder -Filter '*.lnk'
-    $icon = 0
+    <# Defaults
+    my computer
+    (Default) $env:SystemRoot\System32\imageres.dll,-109
+    
+    my documents
+    (Default) $env:SystemRoot\System32\imageres.dll,-123
+    
+    recycle bin
+    (Default) $env:SystemRoot\System32\imageres.dll,-54
+    empty $env:SystemRoot\System32\imageres.dll,-55
+    full $env:SystemRoot\System32\imageres.dll,-54
+
+    network
+    (Default) $env:SystemRoot\System32\imageres.dll,-25
+    #>
+
+    #MyComputer
+    $icon = "HKCU:\\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\DefaultIcon"
+    SP -Path $icon -Name "(Default)" -Value "$pnyDLL,-138" -WhatIf
+    #MyDocuments
+    $icon = "HKCU:\\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{59031A47-3F72-44A7-89C5-5595FE6B30EE}\DefaultIcon"
+    SP -Path $icon -Name "(Default)" -Value "$pnyDLL,-162" -WhatIf
+    #RecycleBin
+    $icon = "HKCU:\\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\DefaultIcon"
+    SP -Path $icon -Name "(Default)" -Value "$pnyDLL,-250" -WhatIf
+    SP -Path $icon -Name "empty" -Value "$pnyDLL,-256" -WhatIf
+    SP -Path $icon -Name "full" -Value "$pnyDLL,-250" -WhatIf
+    #Network
+    $icon = "HKCU:\\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}\DefaultIcon"
+    SP -Path $icon -Name "(Default)" -Value "$pnyDLL,-287" -WhatIf #incorrect icon at the moment Nov24/15
+    
+    $shortcuts = gci $sadFolder -Recurse -Force -Filter '*.lnk' -ErrorAction SilentlyContinue
     $shortcuts | % { 
         $shortcut = $objShell.Createshortcut($_.FullName)
+        $icon = 0
+        $do=$true
         switch -Wildcard ($shortcut.TargetPath){
-            "*accicons*"    { $icon = 1 }
-            "*wordi*"       { $icon = 2 }
-            "*infi*"        { $icon = 3 }
-            "*joti*"        { $icon = 4 }
-            "*outi*"        { $icon = 5 }
-            "*ppti*"        { $icon = 6 }
-            "*xli*"         { $icon = 7 }
-            "*firefox*"     { $icon = 11 }
-            "*iexp*"        { $icon = 9 }
-            "*notepad.exe"  { $icon = 11 }
-            #mycomputer, control panel, recycle bin, network, adobe
-            default{Write-Host $shortcut.TargetPath "skipped. :("}
+        #use the Icon Group to determine index
+            "*WINWORD.EXE*"     { $icon = -222 } #-221 is 2010
+            "*EXCEL.EXE*"       { $icon = -207 } #-206 is 2010
+            "*ONENOTE.EXE*"     { $icon = -212 } #-211 is 2010
+            "*OUTLOOK.EXE*"     { $icon = -214 } #-213 is 2010
+            "*POWERPNT.EXE*"    { $icon = -216 } #-215 is 2010
+            "*PUBLISHER.EXE*"   { $icon = -219 } #-218 is 2010
+            "*INFOPATH.EXE*"    { $icon = -209 } #-208 is 2010
+            "*ACCESS.EXE*"      { $icon = -205 } #-204 is 2010
+            "*AcroRd*"          { $icon = -242 }
+            "*firefox*"         { $icon = -146 }
+            "*chrome.exe*"      { $icon = -5 }
+            "*notepad.exe"      { $icon = -230 }
+            "*wordpad*"         { $icon = -235 }
+            "*iexplore.exe*"    { $icon = -188 }
+            "*opera*"           { $icon = -237 }
+            "*Fireworks*"       { $icon = -110 }
+            "*Dreamweaver*"     { $icon = -107 }
+            "*Illustrator*"     { $icon = -113 }
+            "*Photoshop*"       { $icon = -115 }
+            "*AfterFX*"         { $icon = -103 }
+            "*Bridge.exe*"      { $icon = -111 }
+            "*Flash.exe*"       { $icon = -112 }
+            "*Adobe Premiere Pro.exe*"    { $icon = -119 }
+            "*Soundbooth*"      { $icon = -121 }
+            "*audacity*"        { $icon = -123 }
+            "*left4dead2.exe*"  { $icon = -101 }
+            "*Acrobat.exe*"     { $icon = -102 }
+            "*cmd.exe"          { $icon = -143 }
+            "*dropbox*"         { $icon = -152 }
+            "*steam.exe*"       { $icon = -164 }
+            "*minecraft*"       { $icon = -224 } #-163
+            "*gimp*"            { $icon = -165 }
+            "*gmail*"           { $icon = -166 } #185
+            "*canary*"          { $icon = -170 } #not gonna work..chrome canary is also chrome.exe
+            "*calc*"            { $icon = -135 } #198
+            "*facebook*"        { $icon = -145 }
+            "*picasa*"          { $icon = -182 }
+            "*mspaint*"         { $icon = -183 }
+            "*itunes*"          { $icon = -192 } #191
+            "*join.me.exe*"     { $icon = -193 }
+            "*eclipse*"         { $icon = -196 }
+            "*thunderbird*"     { $icon = -201 }
+            "*safari*"          { $icon = -258 }
+            "*skype*"           { $icon = -263 }
+            "*spotify*"         { $icon = -265 }
+            "*starcraft2*"      { $icon = -266 }
+            "*sims3*"           { $icon = -270 }
+            "*bittorrent*"      { $icon = -274 } #??
+            "*MediaPlayer*"     { $icon = -276 } #??
+            "*devenv*"          { $icon = -282 } #281 is 2010 (Visual Studio)
+            "*vlc*"             { $icon = -284 } #279
+            "*winamp*"          { $icon = -286 } 
+            "*avg*"             { $icon = -291 } #??
+            "*dragonspeak*"     { $icon = -293 } #??
+            "*flash*"           { $icon = -294 } #POSSIBLE REPEAT
+            "*putty.exe*"       { $icon = -268 } #incorrect icon, mac console
+            "*symantec*"        { $icon = -296 } #??
+            "*winrar*"          { $icon = -297 } #??
+            "*windowsupdate*"   { $icon = -289 }
+            "*GitHub*"          { $icon = 1 }
+            "*uTorrent.exe*"    { $icon = -272 }
+            "*foxit*"           { $icon = -243 }
+            "*wow*"             { $icon = -290 } #?? world of warcraft
+            default{
+                #Write-Host $shortcut.TargetPath "skipped. :("
+                $do=$false
+            }
         }
-        Write-Host $shortcut.FullName "ponied. ^_^"
-        $shortcut.IconLocation = ("$pnyDLL, $icon")
-        $shortcut.Save()
+        if($do){
+            #Write-Host $shortcut.FullName " ponied. ^_^"
+            try{
+                $shortcut.IconLocation = ("$pnyDLL, $icon")
+                $shortcut.Save()
+            }catch{
+                Write-Host $shortcut.FullName " has a problem saving. :("
+            }
+        }
     }
 }
 
@@ -377,8 +515,6 @@ Write-Host -ForegroundColor Magenta -BackgroundColor White "                    
 #PwrUpPwny SeBackupPrivilege | Out-Null
 #PwrUpPwny SeDebugPrivilege | Out-Null
 #PwnyStartSound "C:\Temp\r2d2.wav"
+#PwnyShortcuts "$env:USERPROFILE\..\" -pnyDLL "$env:USERPROFILE\Desktop\pnyres.dll"
 #PwnySound
 #PwnyMouse
-#PwnyShortcuts
-
-#Find-WinAPIFunction kernel32.dll LoadResource
