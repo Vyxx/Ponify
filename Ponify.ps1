@@ -1,28 +1,33 @@
-﻿clear
-<#Todo
- MousePack Change (reg key mods)
- System Sounds    (reg key mods) - Need WAV files
+﻿<#Todo
  Fonts
  Web browser settings
+ remove " -WhatIf"
+ restart
 #>
 
+<# Execution order
+BackupPriv       DONE
+DebugPriv        DONE
+Startup Sound    DONE
+Shortcuts        DONE
+Wallpaper        DONE
+Sounds           DONE
+Mouse            DONE
+Fonts            Needs Testing
+QuickLaunch      DONE
+LockScreen       DONE
+UserIcon         DONE
+#>
 #Ƹ̵̡Ӝ̵̨̄Ʒ 
-<#Done
-Change startbar/quicklaunch shortcut icons (
-UserPicture      (Current and Default user)
-LockScreen       (folder and reg key)
-Wallpaper        (reg key mod)
-Startup Sound    (dll inject)
-Shortcuts Change  (editing the .lnk properties)
 
-#>
-
+$magic = "C:\Temp"
 $backuploc = "C:\Temp"
-$wallpapers = "C:\Temp"
+$timestamp = Get-Date -Format "MM-dd-yyyy_hh-mm-ss"
+
 <# Necessary Files:
-wallpaper.jpg
-lockscreen.jpg (1440x900)
-PwnyStartSound("path\to\soundfile.wav")
+$magic\wallpaper.jpg
+$magic\lockscreen.jpg (1440x900)
+PwnyStartSound("$magic\soundfile.wav")
 $env:SystemRoot\cursors\*.ani
 $env:SystemRoot\media\*.wav
 $env:WINDIR\pnyres.dll
@@ -43,48 +48,58 @@ function PwnBrowser{
 }
 
 function PwnyMouse{
+    #backup
+    Reg export "HKCU\Control Panel\Cursors" "$backuploc\$timestamp-mouse.reg" /y
+
     $mouseReg = ("HKCU:\Control Panel\Cursors")
     SP -WhatIf -Path $mouseReg -Name "(Default)" -Value "Pony"
-    SP -WhatIf -Path $mouseReg -Name "AppStarting" -Value "$env:SystemRoot\cursors\aero_working.ani"
-    SP -WhatIf -Path $mouseReg -Name "Arrow" -Value "$env:SystemRoot\cursors\aero_arrow.cur"
-    SP -WhatIf -Path $mouseReg -Name "Crosshair" -Value "$env:SystemRoot\cursors\cross_r.cur"
-    SP -WhatIf -Path $mouseReg -Name "Hand" -Value "$env:SystemRoot\cursors\aero_link.cur"
-    SP -WhatIf -Path $mouseReg -Name "Help" -Value "$env:SystemRoot\cursors\aero_helpsel.cur"
-    SP -WhatIf -Path $mouseReg -Name "IBeam" -Value ""
-    SP -WhatIf -Path $mouseReg -Name "No" -Value "$env:SystemRoot\cursors\aero_unavail.cur"
-    SP -WhatIf -Path $mouseReg -Name "NWPen" -Value "$env:SystemRoot\cursors\aero_pen.cur"
-    SP -WhatIf -Path $mouseReg -Name "SizeAll" -Value "$env:SystemRoot\cursors\aero_move.cur"
-    SP -WhatIf -Path $mouseReg -Name "SizeNESW" -Value "$env:SystemRoot\cursors\aero_nesw.cur"
-    SP -WhatIf -Path $mouseReg -Name "SizeNS" -Value "$env:SystemRoot\cursors\aero_ns.cur"
-    SP -WhatIf -Path $mouseReg -Name "SizeNWSE" -Value "$env:SystemRoot\cursors\aero_nwse.cur"
-    SP -WhatIf -Path $mouseReg -Name "SizeWE" -Value "$env:SystemRoot\cursors\aero_ew.cur"
-    SP -WhatIf -Path $mouseReg -Name "UpArrow" -Value "$env:SystemRoot\cursors\aero_up.cur"
-    SP -WhatIf -Path $mouseReg -Name "Wait" -Value "$env:SystemRoot\cursors\aero_busy.cur"
+    SP -WhatIf -Path $mouseReg -Name "AppStarting" -Value "$magic\cursors\busy.ani"
+    SP -WhatIf -Path $mouseReg -Name "Arrow" -Value "$magic\cursors\arrow.ani"
+    SP -WhatIf -Path $mouseReg -Name "Crosshair" -Value "$magic\cursors\precision.ani"
+    SP -WhatIf -Path $mouseReg -Name "Hand" -Value "$magic\cursors\link.ani"
+    SP -WhatIf -Path $mouseReg -Name "Help" -Value "$magic\cursors\helpsel.ani"
+    SP -WhatIf -Path $mouseReg -Name "IBeam" -Value "$magic\cursors\ibeam.ani"
+    SP -WhatIf -Path $mouseReg -Name "No" -Value "$magic\cursors\unavail.ani"
+    SP -WhatIf -Path $mouseReg -Name "NWPen" -Value "$magic\cursors\pen.ani"
+    SP -WhatIf -Path $mouseReg -Name "SizeAll" -Value "$magic\cursors\move.ani"
+    SP -WhatIf -Path $mouseReg -Name "SizeNESW" -Value "$magic\cursors\nesw.ani"
+    SP -WhatIf -Path $mouseReg -Name "SizeNS" -Value "$magic\cursors\vert.ani"
+    SP -WhatIf -Path $mouseReg -Name "SizeNWSE" -Value "$magic\cursors\nwse.ani"
+    SP -WhatIf -Path $mouseReg -Name "SizeWE" -Value "$magic\cursors\horiz.ani"
+    SP -WhatIf -Path $mouseReg -Name "UpArrow" -Value "$magic\cursors\up.ani"
+    SP -WhatIf -Path $mouseReg -Name "Wait" -Value "$magic\cursors\busy.ani"
 }
 
 function PwnySound{
-    #GP -Path "HKCU:\AppEvents\Schemes\Apps\.Default\Close\.Current" -Name "(Default)"
+    #backup
+    Reg export "HKCU\AppEvents\Schemes\Apps\.Default\" "$backuploc\$timestamp-sounds.reg" /y
+    
     GCI -Path "HKCU:\AppEvents\Schemes\Apps\.Default\" | % {
         $key = $_.OpenSubKey(".Current",$true)
         $soundName = Split-path $key.name.Substring(0,$key.Name.Length - (split-path $key.Name -Leaf).Length) -Leaf
+        Write-Color -Text $soundName": ", $key.GetValue("") -Color Red,White
+        
         switch ($soundName){
+        #no change:{} or {$key.SetValue("",$key.GetValue(""))}
+        #custom sound: {$key.SetValue("","$magic\sounds\XXXXXXX.wav")}
+            ".Default"{$key.SetValue("","$magic\sounds\default.wav")} 
             "AppGPFault"{}
-            "CCSelect"{}
-            "ChangeTheme"{}
-            "Close"{}
-            "CriticalBatteryAlarm"{}
-            "DeviceConnect"{$key.SetValue("",$key.GetValue(""))}
-            "DeviceDisconnect"{}
-            "DeviceFail"{}
+            "CCSelect"{$key.SetValue("","$magic\sounds\select.wav")}
+            "ChangeTheme"{$key.SetValue("","$magic\sounds\select.wav")}
+            "Close"{} #$key.SetValue("","$magic\sounds\closeProgram.wav")  #triggers for ALL programs, so is played too frequently
+            "CriticalBatteryAlarm"{$key.SetValue("","$magic\sounds\criticalBatteryAlarm.wav")}
+            "DeviceConnect"{$key.SetValue("","$magic\sounds\deviceConnect.wav")}
+            "DeviceDisconnect"{$key.SetValue("","$magic\sounds\deviceDisconnect.wav")}
+            "DeviceFail"{$key.SetValue("","$magic\sounds\deviceFailedConnect.wav")}
             "FaxBeep"{}
-            "LowBatteryAlarm"{}
-            "MailBeep"{}
-            "Maximize"{}
+            "LowBatteryAlarm"{$key.SetValue("","$magic\sounds\lowBatteryAlarm.wav")}
+            "MailBeep"{$key.SetValue("","$magic\sounds\newMailNotification.wav")}
+            "Maximize"{$key.SetValue("","$magic\sounds\maximize.wav")}
             "MenuCommand"{}
             "MenuPopup"{}
-            "MessageNudge"{}
-            "Minimize"{}
-            "Notification.Default"{}
+            "MessageNudge"{$key.SetValue("","$magic\sounds\messageNudge.wav")}
+            "Minimize"{$key.SetValue("","$magic\sounds\minimize.wav")}
+            "Notification.Default"{$key.SetValue("","$magic\sounds\notification.wav")}
             "Notification.IM"{}
             "Notification.Looping.Alarm"{}
             "Notification.Looping.Alarm10"{}
@@ -106,32 +121,33 @@ function PwnySound{
             "Notification.Looping.Call7"{}
             "Notification.Looping.Call8"{}
             "Notification.Looping.Call9"{}
-            "Notification.Mail"{}
+            "Notification.Mail"{$key.SetValue("","$magic\sounds\newMailNotification.wav")}
             "Notification.Proximity"{}
-            "Notification.Reminder"{}
+            "Notification.Reminder"{$key.SetValue("","$magic\sounds\reminder.wav")}
             "Notification.SMS"{}
-            "Open"{}
-            "PrintComplete"{}
+            "Open"{}#$key.SetValue("","$magic\sounds\openProgram.wav") #triggers for ALL programs, so is played too frequently
+            "PrintComplete"{$key.SetValue("","$magic\sounds\printComplete.wav")}
             "ProximityConnection"{}
-            "RestoreDown"{}
-            "RestoreUp"{}
+            "RestoreDown"{$key.SetValue("","$magic\sounds\minimize.wav")}
+            "RestoreUp"{$key.SetValue("","$magic\sounds\maximize.wav")}
             "ShowBand"{}
-            "SystemAsterisk"{}
-            "SystemExclamation"{}
-            "SystemExit"{}
-            "SystemHand"{}
-            "SystemNotification"{}
-            "SystemQuestion"{}
-            "WindowsLogoff"{}
-            "WindowsLogon"{$key.SetValue("","$env:SystemRoot\media\Windows Logon.wav")}
-            "WindowsUAC"{}
-            "WindowsUnlock"{}
-            default{Write-Host -ForegroundColor RED $soundName}
+            "SystemAsterisk"{$key.SetValue("","$magic\sounds\asterisk.wav")}
+            "SystemExclamation"{$key.SetValue("","$magic\sounds\exclamation.wav")}
+            "SystemExit"{$key.SetValue("","$magic\sounds\shutdown.wav")}
+            "SystemHand"{$key.SetValue("","$magic\sounds\asterisk.wav")}
+            "SystemNotification"{$key.SetValue("","$magic\sounds\notification.wav")}
+            "SystemQuestion"{$key.SetValue("","$magic\sounds\question.wav")}
+            "WindowsLogoff"{$key.SetValue("","$magic\sounds\logoff.wav")}
+            "WindowsLogon"{$key.SetValue("","$magic\sounds\welcome.wav")}
+            "WindowsUAC"{$key.SetValue("","$magic\sounds\windowsUserAccountControl.wav")}
+            "WindowsUnlock"{$key.SetValue("","$magic\sounds\unlock.wav")}
+            default{Write-Host -ForegroundColor GREEN "Unexpected:" $soundName}
         }
     }
+    Write-Host -ForegroundColor Magenta -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Changed the sounds!"
 }
 
-function PwnFonts{
+function PwnyFonts{
     #figure out this one
     <#
     ;Remove Segoe UI
@@ -152,22 +168,22 @@ function PwnFonts{
     #HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts
 }
 
-function PwnQuickLaunch{
+function PwnyQuickLaunch{
     PwnyShortcuts("$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar")
 }
 
 function PwnyUserIcon{
     If  ( -Not ( Test-Path "$env:ProgramData\Microsoft\Default Account Pictures\user.bmp")){
-        Copy-Item "$wallpapers\user.bmp" "$env:ProgramData\Microsoft\User Account Pictures\user.bmp" -Force -ErrorAction SilentlyContinue
-        Copy-Item "$wallpapers\guest.bmp" "$env:ProgramData\Microsoft\User Account Pictures\guest.bmp" -Force -ErrorAction SilentlyContinue
+        Copy-Item "$magic\user.bmp" "$env:ProgramData\Microsoft\User Account Pictures\user.bmp" -Force -ErrorAction SilentlyContinue
+        Copy-Item "$magic\guest.bmp" "$env:ProgramData\Microsoft\User Account Pictures\guest.bmp" -Force -ErrorAction SilentlyContinue
     }else{
-        Copy-Item "$wallpapers\user.bmp" "$env:ProgramData\Microsoft\Default Account Pictures\user.bmp" -Force -ErrorAction SilentlyContinue
-        Copy-Item "$wallpapers\guest.bmp" "$env:ProgramData\Microsoft\Default Account Pictures\guest.bmp" -Force -ErrorAction SilentlyContinue
+        Copy-Item "$magic\user.bmp" "$env:ProgramData\Microsoft\Default Account Pictures\user.bmp" -Force -ErrorAction SilentlyContinue
+        Copy-Item "$magic\guest.bmp" "$env:ProgramData\Microsoft\Default Account Pictures\guest.bmp" -Force -ErrorAction SilentlyContinue
     }
     $Key = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
     If  ( -Not ( Test-Path "Registry::$Key")){New-Item -Path "Registry::$Key" -ItemType RegistryKey -Force}
     Set-ItemProperty -path "Registry::$Key" -Name "UseDefaultTile" -Type "DWORD" -Value "1" -Force
-    Write-Host -ForegroundColor Magenta -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Changed the user icons!"
+    Write-Host -ForegroundColor Magenta -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Changed the user profile picture!"
 <#
 $env:ProgramData\Microsoft\Default Account Pictures\user.bmp
 $env:ProgramData\Microsoft\User Account Pictures\user.bmp
@@ -181,22 +197,34 @@ UseDefaultTile
 }
 
 function PwnyLockScreen{
-    New-Item -Path "$env:windir\System32\oobe\Info\backgrounds" -ItemType directory -ErrorAction SilentlyContinue
-    Copy-Item "$wallpapers\lockscreen.jpg" "$env:windir\System32\oobe\Info\backgrounds\backgroundDefault.jpg" -Force
-    $Key = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI\Background"
-    If  ( -Not ( Test-Path "Registry::$Key")){New-Item -Path "Registry::$Key" -ItemType RegistryKey -Force}
-    Set-ItemProperty -path "Registry::$Key" -Name "OEMBackground" -Type "DWORD" -Value "1" -Force
-    Write-Host -ForegroundColor Magenta -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Lockscreen Background Changed!"
+    If  ((gp -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion" -Name "CurrentMajorVersionNumber" -ErrorAction SilentlyContinue).CurrentMajorVersionNumber -eq 10){
+    #win10
+    #check for windows version "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion" CurrentMajorVersionNumber
+    #lockscreen in windows 10 "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Personalization" LockScreenImage
+        $Key = ("HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization")
+        If  ( -Not ( Test-Path "Registry::$Key")){New-Item -WhatIf -Path "Registry::$Key" -ItemType RegistryKey -Force} 
+        SP -WhatIf -path $Key -Name "LockScreenImage" -Type "String" -Value "$magic\lockscreen.jpg" -Force
+        Write-Host -ForegroundColor Magenta -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Lockscreen Background Changed (10)!"
+    }else{
+    #win7
+        New-Item -Path "$env:windir\System32\oobe\Info\backgrounds" -ItemType directory -ErrorAction SilentlyContinue
+        Copy-Item "$magic\lockscreen.jpg" "$env:windir\System32\oobe\Info\backgrounds\backgroundDefault.jpg" -Force
+        $Key = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI\Background"
+        If  ( -Not ( Test-Path "Registry::$Key")){New-Item -Path "Registry::$Key" -ItemType RegistryKey -Force}
+        SP -path "Registry::$Key" -Name "OEMBackground" -Type "DWORD" -Value "1" -Force
+        Write-Host -ForegroundColor Magenta -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Lockscreen Background Changed (<10)!"
+        }
 }
 
-function PwnyPaper{
+function PwnyWallpaper{
 <#
 HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System
 Wallpaper = path to location
 WallpaperStyle = 2
 #>
-    #Reg export "HKEY_CURRENT_USER\Control Panel\Desktop" "$backuploc\desktopProps.reg" 
-    Set-ItemProperty -path "HKCU:\Control Panel\Desktop\" -name "wallpaper" -value "$wallpapers\wallpaper.jpg"
+    #backup
+    Reg export "HKEY_CURRENT_USER\Control Panel\Desktop" "$backuploc\$timestamp-desktopProps.reg" /y
+    Set-ItemProperty -path "HKCU:\Control Panel\Desktop\" -name "wallpaper" -value "$magic\wallpaper.jpg"
     rundll32.exe user32.dll, UpdatePerUserSystemParameters
     Write-Host -ForegroundColor Magenta -BackgroundColor White "Ƹ̵̡Ӝ̵̨̄Ʒ Pony wallpaper all set!"
 }
@@ -301,7 +329,7 @@ function PwnyShortcuts([string]$sadFolder, [string]$pnyDLL="$env:WINDIR\pnyres.d
     SP -Path $icon -Name "full" -Value "$pnyDLL,-250" -WhatIf
     #Network
     $icon = "HKCU:\\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}\DefaultIcon"
-    SP -Path $icon -Name "(Default)" -Value "$pnyDLL,-287" -WhatIf #incorrect icon at the moment Nov24/15
+    SP -Path $icon -Name "(Default)" -Value "$pnyDLL,-287" -WhatIf #incorrect icon at the moment
     
     $shortcuts = gci $sadFolder -Recurse -Force -Filter '*.lnk' -ErrorAction SilentlyContinue
     $shortcuts | % { 
@@ -465,6 +493,21 @@ function PwrUpPwny {
  $type[0]::PwrUpPwnyilege($processHandle, $Privilege, $Disable)
 }
 
+function Write-Color([String[]]$Text, [ConsoleColor[]]$Color = "White", [int]$StartTab = 0, [int] $LinesBefore = 0,[int] $LinesAfter = 0) {
+#Write-Color -Text "Red ", "Green ", "Yellow " -Color Red,Green,Yellow
+$DefaultColor = $Color[0]
+if ($LinesBefore -ne 0) {  for ($i = 0; $i -lt $LinesBefore; $i++) { Write-Host "`n" -NoNewline } } # Add empty line before
+if ($StartTab -ne 0) {  for ($i = 0; $i -lt $StartTab; $i++) { Write-Host "`t" -NoNewLine } }  # Add TABS before text
+if ($Color.Count -ge $Text.Count) {
+    for ($i = 0; $i -lt $Text.Length; $i++) { Write-Host $Text[$i] -ForegroundColor $Color[$i] -NoNewLine } 
+} else {
+    for ($i = 0; $i -lt $Color.Length ; $i++) { Write-Host $Text[$i] -ForegroundColor $Color[$i] -NoNewLine }
+    for ($i = $Color.Length; $i -lt $Text.Length; $i++) { Write-Host $Text[$i] -ForegroundColor $DefaultColor -NoNewLine }
+}
+Write-Host
+if ($LinesAfter -ne 0) {  for ($i = 0; $i -lt $LinesAfter; $i++) { Write-Host "`n" } }  # Add empty line after
+}
+
 #region ASCII
 Write-Host -ForegroundColor Magenta -BackgroundColor Black "__________  __      _________  .___________________.___."
 Write-Host -ForegroundColor Magenta -BackgroundColor Black "\______   \/  \    /  \      \ |   \_   _____/\__  |   |"
@@ -514,7 +557,12 @@ Write-Host -ForegroundColor Magenta -BackgroundColor White "                    
 
 #PwrUpPwny SeBackupPrivilege | Out-Null
 #PwrUpPwny SeDebugPrivilege | Out-Null
-#PwnyStartSound "C:\Temp\r2d2.wav"
-#PwnyShortcuts "$env:USERPROFILE\..\" -pnyDLL "$env:USERPROFILE\Desktop\pnyres.dll"
+#PwnyStartSound "$magic\startup.wav"
+#PwnyShortcuts "$env:USERPROFILE\..\" -pnyDLL "$magic\pnyres.dll"
+#PwnyWallpaper
 #PwnySound
 #PwnyMouse
+#PwnyFonts
+#PwnyQuickLaunch
+#PwnyLockScreen
+#PwnyUserIcon
